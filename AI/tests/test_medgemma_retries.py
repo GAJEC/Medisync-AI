@@ -42,4 +42,5 @@ def test_structured_generation_returns_conservative_fallback_after_retry(monkeyp
     assert len(calls) == 2
     assert result.suggested_urgency == "urgent"
     assert result.care_advice
+    assert result.recommended_specialties == ["Internal Medicine", "Family Medicine"]
     assert meta["retry_count"] == 1

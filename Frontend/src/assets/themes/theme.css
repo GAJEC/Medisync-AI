@@ -19,6 +19,8 @@
   --ok-text: #14763f;
   --shadow: 0 4px 18px rgba(20, 40, 35, 0.07);
   --icon-filter: none;
+  --scrollbar-thumb: #c8d3cf;
+  --scrollbar-thumb-hover: #0f7566;
 }
 
 :root[data-theme='dark'] {
@@ -37,6 +39,8 @@
   --ok-text: #6fd197;
   --shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
   --icon-filter: invert(1) brightness(1.1);
+  --scrollbar-thumb: #34423d;
+  --scrollbar-thumb-hover: #2a9d8a;
 }
 
 /* Light / dark switch animation (see animateTheme in src/auth/AuthContext.jsx).

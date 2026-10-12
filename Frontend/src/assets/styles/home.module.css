@@ -1,5 +1,8 @@
-.app-shell { display: flex; height: 100vh; overflow: hidden; }
-.main { display: flex; flex-direction: column; flex: 1; min-width: 0; background: var(--bg); }
+/* position: relative keeps absolutely positioned descendants (e.g. .sr-only labels deep in a long
+   chat) inside the shell. Without it they are placed against the page and make the whole page scroll. */
+.app-shell { position: relative; display: flex; height: 100vh; overflow: hidden; }
+.main { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; background: var(--bg); }
+
 
 /* Top bar */
 .topbar {
@@ -24,7 +27,7 @@
 
 /* Hero */
 .hero {
-  flex: 1; overflow-y: auto;
+  position: relative; flex: 1; min-height: 0; overflow-y: auto;
   display: flex; flex-direction: column; align-items: center;
   padding: 74px 24px 24px; text-align: center;
 }
@@ -33,9 +36,11 @@
 
 /* Conversation thread */
 .thread {
-  flex: 1; overflow-y: auto;
+  position: relative; flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
   display: flex; flex-direction: column; gap: 10px;
-  width: 100%; max-width: 776px; margin: 0 auto; padding: 32px 24px 16px;
+  /* Full width so the scrollbar sits at the window edge; side padding keeps the
+     messages in a centred 728px column (same as the composer). */
+  width: 100%; padding: 32px max(24px, calc((100% - 728px) / 2)) 16px;
 }
 .bubble {
   align-self: flex-start; max-width: 80%; padding: 10px 14px;

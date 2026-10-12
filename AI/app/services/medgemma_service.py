@@ -23,6 +23,8 @@ from ..schemas import ChatOutput, HistoryMessage, ImageOutput, PatientContext
 
 log = logging.getLogger("ai.medgemma")
 
+FALLBACK_SPECIALTIES = ("Internal Medicine", "Family Medicine")
+
 REQUIRED_FILES = ("config.json", "model.safetensors.index.json", "tokenizer.model", "preprocessor_config.json")
 
 def _context_text(ctx: PatientContext | None) -> str:
@@ -107,9 +109,24 @@ def parse_output(raw: str, model_cls, language: str = "en"):
         reply=reply,
         suggested_urgency="urgent",
         care_advice=advice,
+        # General physicians are the safe first point of contact when the model gave no usable routing.
+        recommended_specialties=list(FALLBACK_SPECIALTIES),
         uncertainty_note="The model response failed validation; no diagnosis or explanation is provided.",
     )
     return fallback, False
+
+
+def _invalid_reason(raw: str, meta: dict[str, Any]) -> str:
+    """Short, content-free description of why generated text failed to parse."""
+    if not raw.strip():
+        return "empty output (possible fp16 overflow; use MEDGEMMA_COMPUTE_DTYPE=auto)"
+    if meta.get("truncated"):
+        return "hit MEDGEMMA_MAX_NEW_TOKENS before JSON was complete"
+    if "{" not in raw:
+        return "no JSON object in output"
+    if extract_json(raw) is None:
+        return "malformed JSON"
+    return "JSON failed schema validation"
 
 
 class _ProgressStreamer:
@@ -264,7 +281,11 @@ class MedGemmaService:
         tracker.set("checking")
         out, valid = parse_output(raw, model_cls, language)
         if not valid:
-            log.warning("Structured MedGemma output invalid; retrying once")
+            log.warning(
+                "Structured MedGemma output invalid (%s; output_tokens=%s, chars=%d); retrying once",
+                _invalid_reason(raw, meta), meta.get("output_tokens"), len(raw),
+            )
+            log.debug("Invalid MedGemma output head: %r", raw[:300])
             tracker.set("preparing", attempt=2, tokens=0, section=None)
             retry_messages = [dict(message) for message in messages]
             retry_messages[0]["content"] = [dict(part) for part in messages[0]["content"]]
@@ -272,6 +293,11 @@ class MedGemmaService:
             raw, retry_meta = self._generate(retry_messages)
             tracker.set("checking")
             out, valid = parse_output(raw, model_cls, language)
+            if not valid:
+                log.warning(
+                    "MedGemma retry also invalid (%s; output_tokens=%s); returning conservative fallback",
+                    _invalid_reason(raw, retry_meta), retry_meta.get("output_tokens"),
+                )
             meta = {
                 **retry_meta,
                 "retry_count": 1,

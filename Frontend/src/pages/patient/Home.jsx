@@ -366,6 +366,16 @@ const Home = () => {
 
   const awaitingReply = thread.length > 0 && thread[thread.length - 1].sender === 'patient'
   const shownTriage = activeConversationId ? triageIn[activeConversationId] || null : null
+  const updateTriage = (changes) => setIn(setTriageIn, activeConversationId, { ...shownTriage, ...changes })
+  // When the AI could not produce reliable guidance, offer to book with a doctor instead.
+  const offerBooking =
+    shownTriage?.outputValid === false &&
+    shownTriage.urgency !== 'emergency' &&
+    shownTriage.intent !== 'book_appointment' &&
+    !shownTriage.bookingOffer &&
+    !typingId &&
+    !thinking &&
+    !awaitingReply
 
   const latest = thread[thread.length - 1]
   const answerable =
@@ -466,11 +476,50 @@ const Home = () => {
             </div>
           )}
 
+          {offerBooking && (
+            <div className={`${HomeStyle['followup']} ${HomeStyle['msg--enter']}`}>
+              <div className={`${HomeStyle['msg']} ${HomeStyle['msg--ai']}`}>
+                <AssistantAvatar />
+                <div className={HomeStyle['bubble']} id="booking-offer">
+                  <span className={HomeStyle['sr-only']}>Syncia asks: </span>
+                  Would you like to book an appointment?
+                </div>
+              </div>
+              <div className={HomeStyle['choices']} role="group" aria-labelledby="booking-offer">
+                <button
+                  type="button"
+                  className={HomeStyle['choice']}
+                  onClick={() => updateTriage({ intent: 'book_appointment', bookingOffer: 'accepted' })}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  className={HomeStyle['choice']}
+                  onClick={() => updateTriage({ bookingOffer: 'declined' })}
+                >
+                  No
+                </button>
+              </div>
+            </div>
+          )}
+
+          {shownTriage?.bookingOffer === 'declined' && !thinking && !awaitingReply && (
+            <div className={`${HomeStyle['msg']} ${HomeStyle['msg--ai']} ${HomeStyle['msg--enter']}`}>
+              <AssistantAvatar />
+              <div className={HomeStyle['bubble']}>
+                <span className={HomeStyle['sr-only']}>Syncia: </span>
+                No problem. You can keep describing your symptoms here, or ask me to book an appointment whenever
+                you are ready. If your symptoms become severe or get worse quickly, please seek emergency care now.
+              </div>
+            </div>
+          )}
+
           {shownTriage?.intent === 'book_appointment' && !typingId && (
             <BookingFlow 
               token={token} 
               triage={shownTriage} 
-              onClose={() => setIn(setTriageIn, activeConversationId, { ...shownTriage, intent: 'consultation' })} 
+              onClose={() => updateTriage({ intent: 'consultation', bookingOffer: 'closed' })} 
             />
           )}
 
